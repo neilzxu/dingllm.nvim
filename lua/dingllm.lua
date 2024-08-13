@@ -90,6 +90,24 @@ function M.make_openai_spec_curl_args(opts, prompt, system_prompt)
   return args
 end
 
+function M.make_azure_openai_spec_curl_args(opts, prompt, system_prompt)
+  local url = opts.url
+  local api_key = opts.api_key_name and get_api_key(opts.api_key_name)
+  local data = {
+    messages = { { role = 'system', content = system_prompt }, { role = 'user', content = prompt } },
+    model = opts.model,
+    temperature = 0.7,
+    stream = true,
+  }
+  local args = { '-N', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', vim.json.encode(data) }
+  if api_key then
+    table.insert(args, '-H')
+    table.insert(args, 'api-key: ' .. api_key)
+  end
+  table.insert(args, url)
+  return args
+end
+
 function M.write_string_at_cursor(str)
   vim.schedule(function()
     local current_window = vim.api.nvim_get_current_win()
