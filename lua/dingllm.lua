@@ -91,7 +91,7 @@ function M.make_openai_spec_curl_args(opts, prompt, system_prompt)
 end
 
 function M.make_azure_openai_spec_curl_args(opts, prompt, system_prompt)
-  local url = opts.url
+  local url = opts.url_name and get_api_key(opts.url_name)
   local api_key = opts.api_key_name and get_api_key(opts.api_key_name)
   local data = {
     messages = { { role = 'system', content = system_prompt }, { role = 'user', content = prompt } },
