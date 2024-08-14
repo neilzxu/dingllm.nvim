@@ -95,7 +95,6 @@ function M.make_azure_openai_spec_curl_args(opts, prompt, system_prompt)
   local api_key = opts.api_key_name and get_api_key(opts.api_key_name)
   local data = {
     messages = { { role = 'system', content = system_prompt }, { role = 'user', content = prompt } },
-    model = opts.model,
     temperature = 0.7,
     stream = true,
   }
