@@ -175,7 +175,7 @@ function M.invoke_llm_and_stream_into_editor(opts, make_curl_args_fn, handle_dat
   local args = make_curl_args_fn(opts, prompt, system_prompt)
   local curr_event_state = nil
 
-  print("args", args)
+  print("args", vim.inspect(args))
 
   local function parse_and_call(line)
     local event = line:match '^event: (.+)$'
