@@ -1,26 +1,28 @@
-<img src="https://github.com/yacineMTB/dingllm.nvim/assets/10282244/d03ef83d-a5ee-4ddb-928f-742172f3c80c" alt="wordart (6)" style="width:200px;height:100px;">
+# Azure setup
 
-### dingllm.nvim
-Yacine's no frills LLM nvim scripts. free yourself, brothers and sisters
-
-This is a really light config. I *will* be pushing breaking changes. I recommend reading the code and copying it over - it's really simple.
-
-https://github.com/yacineMTB/dingllm.nvim/assets/10282244/07cf5ace-7e01-46e3-bd2f-5bec3bb019cc
-
-
-### Credits
-This extension woudln't exist if it weren't for https://github.com/melbaldove/llm.nvim
-
-I diff'd on a fork of it until it was basically a rewrite. Thanks @melbaldove!
-
-The main difference is that this uses events from plenary, rather than a timed async loop. I noticed that on some versions of nvim, melbaldove's extension would deadlock my editor. I suspected nio, so i just rewrote the extension. 
-
-### lazy config
-Add your API keys to your env (export it in zshrc or bashrc) 
-
+Create an Azure OpenAI service name thing and then go into the workspace and create a model, which has a deployment name. Now add the following to your bashrc.
 ```
+export AZURE_OPENAI_API_KEY='<one of the keys for your azure openai API>'
+export AZURE_OPENAI_API_BACKEND='https://<name of azure openai endpoint>.openai.azure.com/openai/deployments/<model deployment name>/chat/completions?api-version=2024-06-01'
+```
+
+## Install lua to be the main language of neovim
+
+If you're still on vimscript like I was, do the following.
+
+Create `~/.config/nvim/init.lua` and set it up in accordance with the structured setup in [this page](https://lazy.folke.io/installation). Also have to install some stuff (look at the requirements).
+
+Then, move the old `init.vim` to `vimrc.vim` and then add
+```
+local vimrc = vim.fn.stdpath("config") .. "/vimrc.vim"
+vim.cmd.source(vimrc)
+```
+
+Now create `~/.config/nvim/lua/plugins/llm.lua` and paste this into it
+```
+return {
   {
-    'yacineMTB/dingllm.nvim',
+    'neilzxu/dingllm.nvim',
     dependencies = { 'nvim-lua/plenary.nvim' },
     config = function()
       local system_prompt =
@@ -28,145 +30,32 @@ Add your API keys to your env (export it in zshrc or bashrc)
       local helpful_prompt = 'You are a helpful assistant. What I have sent are my notes so far. You are very curt, yet helpful.'
       local dingllm = require 'dingllm'
 
-
-      local function handle_open_router_spec_data(data_stream)
-        local success, json = pcall(vim.json.decode, data_stream)
-        if success then
-          if json.choices and json.choices[1] and json.choices[1].text then
-            local content = json.choices[1].text
-            if content then
-              dingllm.write_string_at_cursor(content)
-            end
-          end
-        else
-          print("non json " .. data_stream)
-        end
-      end
-
-      local function custom_make_openai_spec_curl_args(opts, prompt)
-        local url = opts.url
-        local api_key = opts.api_key_name and os.getenv(opts.api_key_name)
-        local data = {
-          prompt = prompt,
-          model = opts.model,
-          temperature = 0.7,
-          stream = true,
-        }
-        local args = { '-N', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', vim.json.encode(data) }
-        if api_key then
-          table.insert(args, '-H')
-          table.insert(args, 'Authorization: Bearer ' .. api_key)
-        end
-        table.insert(args, url)
-        return args
-      end
-
-
-      local function llama_405b_base()
+      local function azure_openai_replace()
         dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://openrouter.ai/api/v1/chat/completions',
-          model = 'meta-llama/llama-3.1-405b',
-          api_key_name = 'OPEN_ROUTER_API_KEY',
-          max_tokens = '128',
-          replace = false,
-        }, custom_make_openai_spec_curl_args, handle_open_router_spec_data)
-      end
-
-      local function groq_replace()
-        dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://api.groq.com/openai/v1/chat/completions',
-          model = 'llama-3.1-70b-versatile',
-          api_key_name = 'GROQ_API_KEY',
+          url_name = 'AZURE_OPENAI_API_BACKEND',
+          api_key_name = 'AZURE_OPENAI_API_KEY',
           system_prompt = system_prompt,
           replace = true,
-        }, dingllm.make_openai_spec_curl_args, dingllm.handle_openai_spec_data)
+        }, dingllm.make_azure_openai_spec_curl_args, dingllm.handle_openai_spec_data)
       end
 
-      local function groq_help()
+      local function azure_openai_help()
         dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://api.groq.com/openai/v1/chat/completions',
-          model = 'llama-3.1-70b-versatile',
-          api_key_name = 'GROQ_API_KEY',
+          url_name = 'AZURE_OPENAI_API_BACKEND',
+          api_key_name = 'AZURE_OPENAI_API_KEY',
           system_prompt = helpful_prompt,
           replace = false,
-        }, dingllm.make_openai_spec_curl_args, dingllm.handle_openai_spec_data)
+        }, dingllm.make_azure_openai_spec_curl_args, dingllm.handle_openai_spec_data)
       end
-
-
-    local function ollama_replace()
-      dingllm.invoke_llm_and_stream_into_editor({
-        url = 'http://localhost:11434/v1/chat/completions',
-        model = 'llama3.1', -- or any other model you have in Ollama
-        api_key_name = 'ollama', -- Ollama doesn't require an API key
-        system_prompt = system_prompt,
-        replace = true,
-      }, dingllm.make_openai_spec_curl_args, dingllm.handle_openai_spec_data)
-    end
-
-    local function ollama_help()
-      dingllm.invoke_llm_and_stream_into_editor({
-        url = 'http://localhost:11434/v1/chat/completions',
-        model = 'llama3.1', -- or any other model you have in Ollama
-        api_key_name = 'ollama', -- Ollama doesn't require an API key
-        system_prompt = helpful_prompt,
-        replace = false,
-      }, dingllm.make_openai_spec_curl_args, dingllm.handle_openai_spec_data)
-    end
-
-      local function openai_replace()
-        dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://api.openai.com/v1/chat/completions',
-          model = 'gpt-4o',
-          api_key_name = 'OPENAI_API_KEY',
-          system_prompt = system_prompt,
-          replace = true,
-        }, dingllm.make_openai_spec_curl_args, dingllm.handle_openai_spec_data)
-      end
-
-      local function openai_help()
-        dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://api.openai.com/v1/chat/completions',
-          model = 'gpt-4o',
-          api_key_name = 'OPENAI_API_KEY',
-          system_prompt = helpful_prompt,
-          replace = false,
-        }, dingllm.make_openai_spec_curl_args, dingllm.handle_openai_spec_data)
-      end
-
-      local function anthropic_help()
-        dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://api.anthropic.com/v1/messages',
-          model = 'claude-3-5-sonnet-20240620',
-          api_key_name = 'ANTHROPIC_API_KEY',
-          system_prompt = helpful_prompt,
-          replace = false,
-        }, dingllm.make_anthropic_spec_curl_args, dingllm.handle_anthropic_spec_data)
-      end
-
-      local function anthropic_replace()
-        dingllm.invoke_llm_and_stream_into_editor({
-          url = 'https://api.anthropic.com/v1/messages',
-          model = 'claude-3-5-sonnet-20240620',
-          api_key_name = 'ANTHROPIC_API_KEY',
-          system_prompt = system_prompt,
-          replace = true,
-        }, dingllm.make_anthropic_spec_curl_args, dingllm.handle_anthropic_spec_data)
-      end
-
-      vim.keymap.set({ 'n', 'v' }, '<leader>k', groq_replace, { desc = 'llm groq' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>K', groq_help, { desc = 'llm groq_help' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>L', openai_help, { desc = 'llm openai_help' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>l', openai_replace, { desc = 'llm openai' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>I', anthropic_help, { desc = 'llm anthropic_help' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>i', anthropic_replace, { desc = 'llm anthropic' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>o', ollama_replace, { desc = 'llm ollama' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>O', ollama_help, { desc = 'llm ollama_help' })
-      vim.keymap.set({ 'n', 'v' }, '<leader>o', llama_405b_base, { desc = 'llama base' })
+      -- Keymaps
+      vim.keymap.set({ 'n', 'v' }, ',l', azure_openai_replace, { desc = 'llm azure_openai' })
+      vim.keymap.set({ 'n', 'v' }, ',L', azure_openai_help, { desc = 'llm azure_openai_help' })
     end,
   },
-
+}
 ```
 
-### Documentation
-
-read the code dummy
+Finally, add the following to `init.lua`
+```
+require("lazy").setup("plugins")
+```
